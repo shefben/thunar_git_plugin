@@ -8,6 +8,7 @@
 #include "tgp-emblem-provider.h"
 #include "tgp-git-utils.h"
 #include <string.h>
+#include <gio/gio.h>
 
 /* Global type variable for manual registration */
 static GType tgp_plugin_type = G_TYPE_INVALID;
@@ -43,6 +44,57 @@ tgp_plugin_init(TgpPlugin *plugin)
     plugin->repo_cache = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
     plugin->status_cache = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
     plugin->cache_timeout = 0;
+}
+
+/*
+ * Helper function to recursively update GVFS emblems for files in a repository
+ * This ensures that the file manager displays correct Git status emblems
+ */
+void
+tgp_plugin_update_emblems_in_directory(const gchar *repo_path)
+{
+    git_repository *repo;
+    GDir *dir;
+    const gchar *entry;
+    gchar *file_path;
+    TgpStatusFlags flags;
+
+    if (!repo_path)
+        return;
+
+    repo = tgp_git_open_repository(repo_path);
+    if (!repo)
+        return;
+
+    dir = g_dir_open(repo_path, 0, NULL);
+    if (!dir)
+    {
+        git_repository_free(repo);
+        return;
+    }
+
+    while ((entry = g_dir_read_name(dir)) != NULL)
+    {
+        /* Skip hidden files and .git directory */
+        if (entry[0] == '.')
+            continue;
+
+        file_path = g_build_filename(repo_path, entry, NULL);
+
+        /* Get the Git status for this file */
+        flags = tgp_git_get_file_status(repo, file_path);
+
+        if (flags)
+        {
+            /* Update the GVFS attribute to display the emblem */
+            tgp_emblem_set_git_status_on_file(file_path, flags);
+        }
+
+        g_free(file_path);
+    }
+
+    g_dir_close(dir);
+    git_repository_free(repo);
 }
 
 static void

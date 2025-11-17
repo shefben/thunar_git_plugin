@@ -6,6 +6,8 @@
 #include "tgp-menu-provider.h"
 #include "tgp-git-utils.h"
 #include "tgp-dialogs.h"
+#include "tgp-emblem-provider.h"
+#include "tgp-plugin.h"
 #include <string.h>
 
 /* Forward declarations */
@@ -265,18 +267,21 @@ action_add(ThunarxMenuItem *item, gpointer user_data)
         GError *error = NULL;
         if (tgp_git_add_files(repo, file_paths, &error))
         {
-            tgp_show_info_dialog(GTK_WINDOW(data->window), 
-                                "Files Added", 
+            tgp_show_info_dialog(GTK_WINDOW(data->window),
+                                "Files Added",
                                 "Selected files have been added to the index.");
+
+            /* Update emblems to reflect new status */
+            tgp_plugin_update_emblems_in_directory(data->repo_path);
         }
         else
         {
-            tgp_show_error_dialog(GTK_WINDOW(data->window), 
-                                 "Add Failed", 
+            tgp_show_error_dialog(GTK_WINDOW(data->window),
+                                 "Add Failed",
                                  error ? error->message : "Unknown error");
             if (error) g_error_free(error);
         }
-        
+
         g_list_free_full(file_paths, g_free);
         git_repository_free(repo);
     }

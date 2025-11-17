@@ -15,6 +15,11 @@ G_BEGIN_DECLS
 void tgp_show_info_dialog(GtkWindow *parent, const gchar *title, const gchar *message);
 void tgp_show_error_dialog(GtkWindow *parent, const gchar *title, const gchar *message);
 
+/* Authentication dialog */
+gboolean tgp_show_login_dialog(GtkWindow *parent, const gchar *host,
+                               gchar **username, gchar **password,
+                               gboolean *save_credentials);
+
 /* Main operation dialogs */
 void tgp_show_commit_dialog(GtkWindow *parent, const gchar *repo_path, GList *files);
 void tgp_show_clone_dialog(GtkWindow *parent, const gchar *target_path);

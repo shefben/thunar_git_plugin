@@ -44,6 +44,7 @@ struct _TgpPluginClass
 
 GType tgp_plugin_get_type(void) G_GNUC_CONST;
 void  tgp_plugin_register_type(ThunarxProviderPlugin *plugin);
+void  tgp_plugin_update_emblems_in_directory(const gchar *repo_path);
 
 /* Git status flags */
 typedef enum {

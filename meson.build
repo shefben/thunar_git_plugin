@@ -14,6 +14,7 @@ project('thunar-git-plugin', 'c',
 
 # Dependencies
 glib_dep = dependency('glib-2.0', version: '>= 2.50.0')
+gio_dep = dependency('gio-2.0', version: '>= 2.50.0')
 gtk_dep = dependency('gtk+-3.0', version: '>= 3.22.0')
 libgit2_dep = dependency('libgit2', version: '>= 1.0.0')
 thunarx_dep = dependency('thunarx-3', version: '>= 1.8.0')
@@ -33,7 +34,8 @@ plugin_sources = [
     'src/tgp-git-utils.c',
     'src/tgp-menu-provider.c',
     'src/tgp-emblem-provider.c',
-    'src/tgp-dialogs.c'
+    'src/tgp-dialogs.c',
+    'src/tgp-credentials.c'
 ]
 
 # Plugin library
@@ -41,6 +43,7 @@ thunar_git_plugin = shared_module('thunar-git-plugin',
     sources: plugin_sources,
     dependencies: [
         glib_dep,
+        gio_dep,
         gtk_dep,
         libgit2_dep,
         thunarx_dep
@@ -78,6 +81,7 @@ summary({
 
 summary({
     'glib-2.0': glib_dep.version(),
+    'gio-2.0': gio_dep.version(),
     'gtk+-3.0': gtk_dep.version(),
     'libgit2': libgit2_dep.version(),
     'thunarx-3': thunarx_dep.version(),

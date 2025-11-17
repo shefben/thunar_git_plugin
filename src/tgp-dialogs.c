@@ -5,6 +5,7 @@
 
 #include "tgp-dialogs.h"
 #include "tgp-git-utils.h"
+#include "tgp-credentials.h"
 #include <string.h>
 
 void
@@ -31,6 +32,126 @@ tgp_show_error_dialog(GtkWindow *parent, const gchar *title, const gchar *messag
     gtk_window_set_title(GTK_WINDOW(dialog), title);
     gtk_dialog_run(GTK_DIALOG(dialog));
     gtk_widget_destroy(dialog);
+}
+
+/* Login Dialog */
+gboolean
+tgp_show_login_dialog(GtkWindow *parent, const gchar *host,
+                      gchar **username, gchar **password,
+                      gboolean *save_credentials)
+{
+    GtkWidget *dialog, *content_area, *grid;
+    GtkWidget *label, *username_entry, *password_entry, *save_check;
+    GtkWidget *auth_label;
+    gint response;
+    gchar *title, *message;
+
+    if (!host || !username || !password || !save_credentials)
+        return FALSE;
+
+    title = g_strdup_printf("Authentication Required");
+    message = g_strdup_printf("Please provide authentication credentials for: %s", host);
+
+    dialog = gtk_dialog_new_with_buttons(title,
+                                         parent,
+                                         GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+                                         "Cancel", GTK_RESPONSE_CANCEL,
+                                         "Authenticate", GTK_RESPONSE_OK,
+                                         NULL);
+
+    gtk_window_set_default_size(GTK_WINDOW(dialog), 450, 250);
+    content_area = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
+
+    /* Create main grid layout */
+    grid = gtk_grid_new();
+    gtk_grid_set_row_spacing(GTK_GRID(grid), 10);
+    gtk_grid_set_column_spacing(GTK_GRID(grid), 10);
+    gtk_container_set_border_width(GTK_CONTAINER(grid), 15);
+    gtk_box_pack_start(GTK_BOX(content_area), grid, TRUE, TRUE, 0);
+
+    /* Authentication info label */
+    auth_label = gtk_label_new(message);
+    gtk_label_set_line_wrap(GTK_LABEL(auth_label), TRUE);
+    gtk_grid_attach(GTK_GRID(grid), auth_label, 0, 0, 2, 1);
+
+    /* Username label and entry */
+    label = gtk_label_new("Username:");
+    gtk_grid_attach(GTK_GRID(grid), label, 0, 1, 1, 1);
+
+    username_entry = gtk_entry_new();
+    gtk_grid_attach(GTK_GRID(grid), username_entry, 1, 1, 1, 1);
+    gtk_widget_set_hexpand(username_entry, TRUE);
+
+    /* Pre-fill with stored username if available */
+    if (*username)
+    {
+        gtk_entry_set_text(GTK_ENTRY(username_entry), *username);
+        gtk_editable_set_position(GTK_EDITABLE(username_entry), -1);
+    }
+
+    /* Password label and entry */
+    label = gtk_label_new("Password:");
+    gtk_grid_attach(GTK_GRID(grid), label, 0, 2, 1, 1);
+
+    password_entry = gtk_entry_new();
+    gtk_entry_set_visibility(GTK_ENTRY(password_entry), FALSE);
+    gtk_grid_attach(GTK_GRID(grid), password_entry, 1, 2, 1, 1);
+    gtk_widget_set_hexpand(password_entry, TRUE);
+
+    /* Pre-fill with stored password if available */
+    if (*password)
+    {
+        gtk_entry_set_text(GTK_ENTRY(password_entry), *password);
+    }
+
+    /* Save credentials checkbox */
+    save_check = gtk_check_button_new_with_label("Save credentials for this session");
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(save_check), *save_credentials);
+    gtk_grid_attach(GTK_GRID(grid), save_check, 0, 3, 2, 1);
+
+    gtk_widget_show_all(dialog);
+
+    /* Run dialog */
+    response = gtk_dialog_run(GTK_DIALOG(dialog));
+
+    if (response == GTK_RESPONSE_OK)
+    {
+        const gchar *user_text = gtk_entry_get_text(GTK_ENTRY(username_entry));
+        const gchar *pass_text = gtk_entry_get_text(GTK_ENTRY(password_entry));
+
+        /* Update output parameters */
+        if (user_text && *user_text)
+        {
+            if (*username)
+                g_free(*username);
+            *username = g_strdup(user_text);
+        }
+
+        if (pass_text && *pass_text)
+        {
+            if (*password)
+            {
+                memset(*password, 0, strlen(*password));
+                g_free(*password);
+            }
+            *password = g_strdup(pass_text);
+        }
+
+        *save_credentials = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(save_check));
+
+        /* If save was requested, store the credentials */
+        if (*save_credentials && *username && *password)
+        {
+            /* Store for this session (3600 seconds = 1 hour) */
+            tgp_credentials_store(host, *username, *password, 3600);
+        }
+    }
+
+    gtk_widget_destroy(dialog);
+    g_free(title);
+    g_free(message);
+
+    return response == GTK_RESPONSE_OK;
 }
 
 /* Commit Dialog */

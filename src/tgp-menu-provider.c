@@ -6,6 +6,8 @@
 #include "tgp-menu-provider.h"
 #include "tgp-git-utils.h"
 #include "tgp-dialogs.h"
+#include "tgp-emblem-provider.h"
+#include "tgp-plugin.h"
 #include <string.h>
 
 /* Forward declarations */
@@ -265,18 +267,21 @@ action_add(ThunarxMenuItem *item, gpointer user_data)
         GError *error = NULL;
         if (tgp_git_add_files(repo, file_paths, &error))
         {
-            tgp_show_info_dialog(GTK_WINDOW(data->window), 
-                                "Files Added", 
+            tgp_show_info_dialog(GTK_WINDOW(data->window),
+                                "Files Added",
                                 "Selected files have been added to the index.");
+
+            /* Update emblems to reflect new status */
+            tgp_plugin_update_emblems_in_directory(data->repo_path);
         }
         else
         {
-            tgp_show_error_dialog(GTK_WINDOW(data->window), 
-                                 "Add Failed", 
+            tgp_show_error_dialog(GTK_WINDOW(data->window),
+                                 "Add Failed",
                                  error ? error->message : "Unknown error");
             if (error) g_error_free(error);
         }
-        
+
         g_list_free_full(file_paths, g_free);
         git_repository_free(repo);
     }
@@ -288,7 +293,80 @@ static void
 action_push(ThunarxMenuItem *item, gpointer user_data)
 {
     ActionData *data = user_data;
-    tgp_show_push_dialog(GTK_WINDOW(data->window), data->repo_path);
+    git_repository *repo;
+    GList *remotes;
+    gchar *remote_name = NULL;
+    gchar *branch_name = NULL;
+    gchar *username = NULL;
+    gchar *password = NULL;
+    gboolean save_credentials = FALSE;
+    GError *error = NULL;
+
+    repo = tgp_git_open_repository(data->repo_path);
+    if (repo)
+    {
+        remotes = tgp_git_get_remotes(repo);
+        if (remotes)
+        {
+            remote_name = (gchar *)remotes->data;
+            branch_name = tgp_git_get_current_branch(repo);
+
+            if (remote_name && branch_name)
+            {
+                /* Try to push with stored credentials first */
+                if (!tgp_git_push_with_auth(repo, remote_name, branch_name,
+                                           NULL, NULL, &error))
+                {
+                    /* Authentication likely failed - ask user for credentials */
+                    if (tgp_show_login_dialog(GTK_WINDOW(data->window), remote_name,
+                                             &username, &password, &save_credentials))
+                    {
+                        /* Try again with provided credentials */
+                        g_error_free(error);
+                        error = NULL;
+                        if (tgp_git_push_with_auth(repo, remote_name, branch_name,
+                                                   username, password, &error))
+                        {
+                            tgp_show_info_dialog(GTK_WINDOW(data->window),
+                                                "Push Successful",
+                                                "Changes pushed to remote successfully.");
+                        }
+                        else
+                        {
+                            tgp_show_error_dialog(GTK_WINDOW(data->window),
+                                                 "Push Failed",
+                                                 error ? error->message : "Unknown error");
+                        }
+                    }
+                }
+                else
+                {
+                    tgp_show_info_dialog(GTK_WINDOW(data->window),
+                                        "Push Successful",
+                                        "Changes pushed to remote successfully.");
+                }
+            }
+
+            g_list_free_full(remotes, g_free);
+            g_free(branch_name);
+        }
+
+        git_repository_free(repo);
+    }
+
+    if (error)
+        g_error_free(error);
+    if (username)
+    {
+        memset(username, 0, strlen(username));
+        g_free(username);
+    }
+    if (password)
+    {
+        memset(password, 0, strlen(password));
+        g_free(password);
+    }
+
     action_data_free(data);
 }
 
@@ -296,7 +374,80 @@ static void
 action_pull(ThunarxMenuItem *item, gpointer user_data)
 {
     ActionData *data = user_data;
-    tgp_show_pull_dialog(GTK_WINDOW(data->window), data->repo_path);
+    git_repository *repo;
+    GList *remotes;
+    gchar *remote_name = NULL;
+    gchar *branch_name = NULL;
+    gchar *username = NULL;
+    gchar *password = NULL;
+    gboolean save_credentials = FALSE;
+    GError *error = NULL;
+
+    repo = tgp_git_open_repository(data->repo_path);
+    if (repo)
+    {
+        remotes = tgp_git_get_remotes(repo);
+        if (remotes)
+        {
+            remote_name = (gchar *)remotes->data;
+            branch_name = tgp_git_get_current_branch(repo);
+
+            if (remote_name && branch_name)
+            {
+                /* Try to pull with stored credentials first */
+                if (!tgp_git_pull_with_auth(repo, remote_name, branch_name,
+                                           NULL, NULL, &error))
+                {
+                    /* Authentication likely failed - ask user for credentials */
+                    if (tgp_show_login_dialog(GTK_WINDOW(data->window), remote_name,
+                                             &username, &password, &save_credentials))
+                    {
+                        /* Try again with provided credentials */
+                        g_error_free(error);
+                        error = NULL;
+                        if (tgp_git_pull_with_auth(repo, remote_name, branch_name,
+                                                   username, password, &error))
+                        {
+                            tgp_show_info_dialog(GTK_WINDOW(data->window),
+                                                "Pull Successful",
+                                                "Changes pulled from remote successfully.");
+                        }
+                        else
+                        {
+                            tgp_show_error_dialog(GTK_WINDOW(data->window),
+                                                 "Pull Failed",
+                                                 error ? error->message : "Unknown error");
+                        }
+                    }
+                }
+                else
+                {
+                    tgp_show_info_dialog(GTK_WINDOW(data->window),
+                                        "Pull Successful",
+                                        "Changes pulled from remote successfully.");
+                }
+            }
+
+            g_list_free_full(remotes, g_free);
+            g_free(branch_name);
+        }
+
+        git_repository_free(repo);
+    }
+
+    if (error)
+        g_error_free(error);
+    if (username)
+    {
+        memset(username, 0, strlen(username));
+        g_free(username);
+    }
+    if (password)
+    {
+        memset(password, 0, strlen(password));
+        g_free(password);
+    }
+
     action_data_free(data);
 }
 

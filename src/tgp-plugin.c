@@ -13,7 +13,6 @@
 static GType tgp_plugin_type = G_TYPE_INVALID;
 
 static void tgp_plugin_menu_provider_init(ThunarxMenuProviderIface *iface);
-static void tgp_plugin_emblem_provider_init(ThunarxFileInfoIface *iface);
 static void tgp_plugin_finalize(GObject *object);
 static void tgp_plugin_class_init(TgpPluginClass *klass);
 static void tgp_plugin_class_finalize(TgpPluginClass *klass);
@@ -79,13 +78,6 @@ tgp_plugin_menu_provider_init(ThunarxMenuProviderIface *iface)
     iface->get_folder_menu_items = tgp_menu_provider_get_folder_items;
 }
 
-static void
-tgp_plugin_emblem_provider_init(ThunarxFileInfoIface *iface)
-{
-    /* Note: Emblem provider interface is limited in Thunarx
-     * We'll use property pages and custom overlays as workaround */
-}
-
 void
 tgp_plugin_register_type(ThunarxProviderPlugin *plugin)
 {
@@ -108,12 +100,6 @@ tgp_plugin_register_type(ThunarxProviderPlugin *plugin)
         NULL            /* interface_data */
     };
 
-    static const GInterfaceInfo emblem_provider_info = {
-        (GInterfaceInitFunc) tgp_plugin_emblem_provider_init,
-        NULL,           /* interface_finalize */
-        NULL            /* interface_data */
-    };
-
     tgp_plugin_type = g_type_module_register_type(G_TYPE_MODULE(plugin),
                                                    G_TYPE_OBJECT,
                                                    "TgpPlugin",
@@ -124,11 +110,6 @@ tgp_plugin_register_type(ThunarxProviderPlugin *plugin)
                                 tgp_plugin_type,
                                 THUNARX_TYPE_MENU_PROVIDER,
                                 &menu_provider_info);
-
-    g_type_module_add_interface(G_TYPE_MODULE(plugin),
-                                tgp_plugin_type,
-                                THUNARX_TYPE_FILE_INFO,
-                                &emblem_provider_info);
 }
 
 G_MODULE_EXPORT void

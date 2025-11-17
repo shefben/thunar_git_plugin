@@ -7,6 +7,7 @@
 #include "tgp-menu-provider.h"
 #include "tgp-emblem-provider.h"
 #include "tgp-git-utils.h"
+#include "tgp-credentials.h"
 #include <string.h>
 #include <gio/gio.h>
 
@@ -168,7 +169,7 @@ G_MODULE_EXPORT void
 thunar_extension_initialize(ThunarxProviderPlugin *plugin)
 {
     const gchar *mismatch;
-    
+
     /* Verify that the thunarx versions are compatible */
     mismatch = thunarx_check_version(THUNARX_MAJOR_VERSION,
                                       THUNARX_MINOR_VERSION,
@@ -178,13 +179,16 @@ thunar_extension_initialize(ThunarxProviderPlugin *plugin)
         g_warning("Version mismatch: %s", mismatch);
         return;
     }
-    
+
+    /* Initialize credential system */
+    tgp_credentials_init();
+
     /* Initialize libgit2 */
     tgp_git_init();
-    
+
     /* Register the plugin types */
     tgp_plugin_register_type(plugin);
-    
+
     g_message("Thunar Git Plugin initialized successfully");
 }
 
@@ -192,6 +196,7 @@ G_MODULE_EXPORT void
 thunar_extension_shutdown(void)
 {
     tgp_git_shutdown();
+    tgp_credentials_cleanup();
     g_message("Thunar Git Plugin shut down");
 }
 

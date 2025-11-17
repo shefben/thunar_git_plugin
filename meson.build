@@ -34,7 +34,8 @@ plugin_sources = [
     'src/tgp-git-utils.c',
     'src/tgp-menu-provider.c',
     'src/tgp-emblem-provider.c',
-    'src/tgp-dialogs.c'
+    'src/tgp-dialogs.c',
+    'src/tgp-credentials.c'
 ]
 
 # Plugin library

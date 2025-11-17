@@ -40,6 +40,12 @@ gboolean        tgp_git_fetch(git_repository *repo, const gchar *remote, GError 
 gboolean        tgp_git_clone(const gchar *url, const gchar *path, GError **error);
 GList*          tgp_git_get_remotes(git_repository *repo);
 
+/* Remote operations with authentication support */
+gboolean        tgp_git_push_with_auth(git_repository *repo, const gchar *remote, const gchar *branch,
+                                       const gchar *username, const gchar *password, GError **error);
+gboolean        tgp_git_pull_with_auth(git_repository *repo, const gchar *remote, const gchar *branch,
+                                       const gchar *username, const gchar *password, GError **error);
+
 /* History operations */
 GList*          tgp_git_get_log(git_repository *repo, gint limit);
 gchar*          tgp_git_get_diff(git_repository *repo, const gchar *path);

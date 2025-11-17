@@ -4,6 +4,7 @@
  */
 
 #include "tgp-git-utils.h"
+#include "tgp-credentials.h"
 #include <string.h>
 #include <stdio.h>
 
@@ -738,4 +739,156 @@ tgp_git_get_stashes(git_repository *repo)
 {
     /* Simplified - would need to implement stash list traversal */
     return NULL;
+}
+
+/*
+ * Push with authentication support
+ * Uses provided credentials or stored credentials
+ */
+gboolean
+tgp_git_push_with_auth(git_repository *repo, const gchar *remote, const gchar *branch,
+                       const gchar *username, const gchar *password, GError **error)
+{
+    git_push_options push_opts = GIT_PUSH_OPTIONS_INIT;
+    git_remote *remote_obj = NULL;
+    gchar *refspec = NULL;
+    int ret = 0;
+
+    if (!repo || !remote || !branch)
+        return FALSE;
+
+    /* Open remote */
+    if (git_remote_lookup(&remote_obj, repo, remote) != 0)
+    {
+        g_set_error(error, 0, 0, "Remote '%s' not found", remote);
+        return FALSE;
+    }
+
+    /* Set up credentials callback */
+    git_credential_acquire_cb cred_callback = tgp_git_credentials_callback;
+    push_opts.callbacks.credentials = cred_callback;
+
+    /* If credentials provided, try to store them first */
+    if (username && password)
+    {
+        git_remote_url(remote_obj);
+        /* Extract host from URL */
+        const gchar *url = git_remote_url(remote_obj);
+        if (url)
+        {
+            gchar *host = NULL;
+            if (g_str_has_prefix(url, "https://"))
+                host = g_strdup(url + 8);
+            else if (g_str_has_prefix(url, "http://"))
+                host = g_strdup(url + 7);
+
+            if (host)
+            {
+                gchar *slash = strchr(host, '/');
+                if (slash)
+                    *slash = '\0';
+
+                tgp_credentials_store(host, username, password, 3600);
+                g_free(host);
+            }
+        }
+    }
+
+    /* Build refspec: local branch -> remote branch */
+    refspec = g_strdup_printf("refs/heads/%s:refs/heads/%s", branch, branch);
+
+    /* Push */
+    ret = git_remote_push(remote_obj, (const char * const*)&refspec, &push_opts);
+
+    g_free(refspec);
+    git_remote_free(remote_obj);
+
+    if (ret != 0)
+    {
+        g_set_error(error, 0, 0, "Push failed: %s", git_error_last()->message);
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
+/*
+ * Pull with authentication support
+ * Uses provided credentials or stored credentials
+ */
+gboolean
+tgp_git_pull_with_auth(git_repository *repo, const gchar *remote, const gchar *branch,
+                       const gchar *username, const gchar *password, GError **error)
+{
+    git_remote *remote_obj = NULL;
+    git_fetch_options fetch_opts = GIT_FETCH_OPTIONS_INIT;
+    git_merge_options merge_opts = GIT_MERGE_OPTIONS_INIT;
+    git_reference *ref;
+    git_object *target;
+    gint ret = 0;
+
+    if (!repo || !remote || !branch)
+        return FALSE;
+
+    /* Open remote */
+    if (git_remote_lookup(&remote_obj, repo, remote) != 0)
+    {
+        g_set_error(error, 0, 0, "Remote '%s' not found", remote);
+        return FALSE;
+    }
+
+    /* Set up credentials callback */
+    fetch_opts.callbacks.credentials = tgp_git_credentials_callback;
+
+    /* If credentials provided, store them first */
+    if (username && password)
+    {
+        const gchar *url = git_remote_url(remote_obj);
+        if (url)
+        {
+            gchar *host = NULL;
+            if (g_str_has_prefix(url, "https://"))
+                host = g_strdup(url + 8);
+            else if (g_str_has_prefix(url, "http://"))
+                host = g_strdup(url + 7);
+
+            if (host)
+            {
+                gchar *slash = strchr(host, '/');
+                if (slash)
+                    *slash = '\0';
+
+                tgp_credentials_store(host, username, password, 3600);
+                g_free(host);
+            }
+        }
+    }
+
+    /* Fetch from remote */
+    ret = git_remote_fetch(remote_obj, NULL, &fetch_opts, NULL);
+    if (ret != 0)
+    {
+        g_set_error(error, 0, 0, "Fetch failed: %s", git_error_last()->message);
+        git_remote_free(remote_obj);
+        return FALSE;
+    }
+
+    /* Merge remote tracking branch */
+    gchar *remote_ref = g_strdup_printf("refs/remotes/%s/%s", remote, branch);
+
+    if (git_revparse_single(&target, repo, remote_ref) == 0)
+    {
+        ret = git_merge(repo, (const git_annotated_commit**)&target, 1, &merge_opts);
+    }
+
+    g_free(remote_ref);
+    git_remote_free(remote_obj);
+
+    if (ret != 0 && ret != GIT_EMERGECONFLICT)
+    {
+        g_set_error(error, 0, 0, "Merge failed: %s", git_error_last()->message);
+        return FALSE;
+    }
+
+    return TRUE;
 }

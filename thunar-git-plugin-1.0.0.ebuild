@@ -15,11 +15,10 @@ KEYWORDS="amd64 x86 arm arm64"
 IUSE=""
 
 DEPEND="
-    >=dev-libs/glib-2.50.0
+    >=dev-libs/glib-2.50.0:0
     >=x11-libs/gtk+-3.22.0:3
     >=dev-libs/libgit2-1.0.0
     >=xfce-base/thunar-1.8.0
-    >=xfce-base/exo-4.12.0
 "
 RDEPEND="${DEPEND}"
 BDEPEND="

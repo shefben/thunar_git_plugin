@@ -32,12 +32,19 @@ typedef struct {
     gchar     *repo_path;
 } ActionData;
 
+static gpointer
+tgp_object_ref_copy(gconstpointer src, gpointer user_data)
+{
+    (void)user_data;
+    return g_object_ref((gpointer)src);
+}
+
 static ActionData*
 action_data_new(GtkWidget *window, GList *files, const gchar *repo_path)
 {
     ActionData *data = g_new0(ActionData, 1);
     data->window = window;
-    data->files = g_list_copy_deep(files, (GCopyFunc)g_object_ref, NULL);
+    data->files = g_list_copy_deep(files, tgp_object_ref_copy, NULL);
     data->repo_path = g_strdup(repo_path);
     return data;
 }
@@ -63,6 +70,8 @@ tgp_menu_provider_get_file_items(ThunarxMenuProvider *provider,
     gchar *repo_root = NULL;
     git_repository *repo = NULL;
     
+    (void)provider;
+
     if (files == NULL)
         return NULL;
     
@@ -249,6 +258,7 @@ tgp_menu_provider_get_folder_items(ThunarxMenuProvider *provider,
 static void
 action_commit(ThunarxMenuItem *item, gpointer user_data)
 {
+    (void)item;
     ActionData *data = user_data;
     tgp_show_commit_dialog(GTK_WINDOW(data->window), data->repo_path, data->files);
     action_data_free(data);
@@ -257,6 +267,7 @@ action_commit(ThunarxMenuItem *item, gpointer user_data)
 static void
 action_add(ThunarxMenuItem *item, gpointer user_data)
 {
+    (void)item;
     ActionData *data = user_data;
     git_repository *repo = tgp_git_open_repository(data->repo_path);
     
@@ -309,6 +320,7 @@ action_add(ThunarxMenuItem *item, gpointer user_data)
 static void
 action_push(ThunarxMenuItem *item, gpointer user_data)
 {
+    (void)item;
     ActionData *data = user_data;
     git_repository *repo;
     GList *remotes;
@@ -390,6 +402,7 @@ action_push(ThunarxMenuItem *item, gpointer user_data)
 static void
 action_pull(ThunarxMenuItem *item, gpointer user_data)
 {
+    (void)item;
     ActionData *data = user_data;
     git_repository *repo;
     GList *remotes;
@@ -471,6 +484,7 @@ action_pull(ThunarxMenuItem *item, gpointer user_data)
 static void
 action_clone(ThunarxMenuItem *item, gpointer user_data)
 {
+    (void)item;
     ActionData *data = user_data;
     tgp_show_clone_dialog(GTK_WINDOW(data->window), data->repo_path);
     action_data_free(data);
@@ -479,6 +493,7 @@ action_clone(ThunarxMenuItem *item, gpointer user_data)
 static void
 action_log(ThunarxMenuItem *item, gpointer user_data)
 {
+    (void)item;
     ActionData *data = user_data;
     tgp_show_log_dialog(GTK_WINDOW(data->window), data->repo_path);
     action_data_free(data);
@@ -487,6 +502,7 @@ action_log(ThunarxMenuItem *item, gpointer user_data)
 static void
 action_diff(ThunarxMenuItem *item, gpointer user_data)
 {
+    (void)item;
     ActionData *data = user_data;
     
     if (data->files)
@@ -511,6 +527,7 @@ action_diff(ThunarxMenuItem *item, gpointer user_data)
 static void
 action_branch(ThunarxMenuItem *item, gpointer user_data)
 {
+    (void)item;
     ActionData *data = user_data;
     tgp_show_branch_dialog(GTK_WINDOW(data->window), data->repo_path);
     action_data_free(data);
@@ -519,6 +536,7 @@ action_branch(ThunarxMenuItem *item, gpointer user_data)
 static void
 action_stash(ThunarxMenuItem *item, gpointer user_data)
 {
+    (void)item;
     ActionData *data = user_data;
     tgp_show_stash_dialog(GTK_WINDOW(data->window), data->repo_path);
     action_data_free(data);
@@ -527,6 +545,7 @@ action_stash(ThunarxMenuItem *item, gpointer user_data)
 static void
 action_init(ThunarxMenuItem *item, gpointer user_data)
 {
+    (void)item;
     ActionData *data = user_data;
     git_repository *repo = NULL;
     
@@ -550,6 +569,7 @@ action_init(ThunarxMenuItem *item, gpointer user_data)
 static void
 action_revert(ThunarxMenuItem *item, gpointer user_data)
 {
+    (void)item;
     ActionData *data = user_data;
     
     GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(data->window),
@@ -573,6 +593,7 @@ action_revert(ThunarxMenuItem *item, gpointer user_data)
 static void
 action_resolve(ThunarxMenuItem *item, gpointer user_data)
 {
+    (void)item;
     ActionData *data = user_data;
     tgp_show_conflict_dialog(GTK_WINDOW(data->window), data->repo_path);
     action_data_free(data);
@@ -581,6 +602,7 @@ action_resolve(ThunarxMenuItem *item, gpointer user_data)
 static void
 action_fetch(ThunarxMenuItem *item, gpointer user_data)
 {
+    (void)item;
     ActionData *data = user_data;
     git_repository *repo = tgp_git_open_repository(data->repo_path);
     
@@ -609,6 +631,7 @@ action_fetch(ThunarxMenuItem *item, gpointer user_data)
 static void
 action_status(ThunarxMenuItem *item, gpointer user_data)
 {
+    (void)item;
     ActionData *data = user_data;
     tgp_show_status_dialog(GTK_WINDOW(data->window), data->repo_path);
     action_data_free(data);

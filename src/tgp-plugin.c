@@ -14,11 +14,15 @@
 /* Global type variable for manual registration */
 static GType tgp_plugin_type = G_TYPE_INVALID;
 
-static void tgp_plugin_menu_provider_init(ThunarxMenuProviderIface *iface);
+static void tgp_plugin_menu_provider_init(ThunarxMenuProviderIface *iface, gpointer user_data);
+static void tgp_plugin_menu_provider_init_adapter(gpointer iface, gpointer user_data);
 static void tgp_plugin_finalize(GObject *object);
-static void tgp_plugin_class_init(TgpPluginClass *klass);
-static void tgp_plugin_class_finalize(TgpPluginClass *klass);
-static void tgp_plugin_init(TgpPlugin *plugin);
+static void tgp_plugin_class_init(TgpPluginClass *klass, gpointer user_data);
+static void tgp_plugin_class_finalize(TgpPluginClass *klass, gpointer user_data);
+static void tgp_plugin_init(TgpPlugin *plugin, gpointer user_data);
+static void tgp_plugin_class_init_adapter(gpointer klass, gpointer user_data);
+static void tgp_plugin_class_finalize_adapter(gpointer klass, gpointer user_data);
+static void tgp_plugin_init_adapter(GTypeInstance *instance, gpointer user_data);
 
 /* Implement get_type function manually */
 GType
@@ -28,23 +32,45 @@ tgp_plugin_get_type(void)
 }
 
 static void
-tgp_plugin_class_init(TgpPluginClass *klass)
+tgp_plugin_class_init(TgpPluginClass *klass, gpointer user_data)
 {
     GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
+    (void)user_data;
     gobject_class->finalize = tgp_plugin_finalize;
 }
 
 static void
-tgp_plugin_class_finalize(TgpPluginClass *klass)
+tgp_plugin_class_init_adapter(gpointer klass, gpointer user_data)
 {
+    tgp_plugin_class_init(TGP_PLUGIN_CLASS(klass), user_data);
 }
 
 static void
-tgp_plugin_init(TgpPlugin *plugin)
+tgp_plugin_class_finalize(TgpPluginClass *klass, gpointer user_data)
 {
+    (void)klass;
+    (void)user_data;
+}
+
+static void
+tgp_plugin_class_finalize_adapter(gpointer klass, gpointer user_data)
+{
+    tgp_plugin_class_finalize(TGP_PLUGIN_CLASS(klass), user_data);
+}
+
+static void
+tgp_plugin_init(TgpPlugin *plugin, gpointer user_data)
+{
+    (void)user_data;
     plugin->repo_cache = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
     plugin->status_cache = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
     plugin->cache_timeout = 0;
+}
+
+static void
+tgp_plugin_init_adapter(GTypeInstance *instance, gpointer user_data)
+{
+    tgp_plugin_init(TGP_PLUGIN(instance), user_data);
 }
 
 /*
@@ -125,10 +151,17 @@ tgp_plugin_finalize(GObject *object)
 }
 
 static void
-tgp_plugin_menu_provider_init(ThunarxMenuProviderIface *iface)
+tgp_plugin_menu_provider_init(ThunarxMenuProviderIface *iface, gpointer user_data)
 {
+    (void)user_data;
     iface->get_file_menu_items = tgp_menu_provider_get_file_items;
     iface->get_folder_menu_items = tgp_menu_provider_get_folder_items;
+}
+
+static void
+tgp_plugin_menu_provider_init_adapter(gpointer iface, gpointer user_data)
+{
+    tgp_plugin_menu_provider_init((ThunarxMenuProviderIface *)iface, user_data);
 }
 
 void
@@ -138,17 +171,17 @@ tgp_plugin_register_type(ThunarxProviderPlugin *plugin)
         sizeof(TgpPluginClass),
         NULL,           /* base_init */
         NULL,           /* base_finalize */
-        (GClassInitFunc) tgp_plugin_class_init,
-        (GClassFinalizeFunc) tgp_plugin_class_finalize,
+        tgp_plugin_class_init_adapter,
+        tgp_plugin_class_finalize_adapter,
         NULL,           /* class_data */
         sizeof(TgpPlugin),
         0,              /* n_preallocs */
-        (GInstanceInitFunc) tgp_plugin_init,
+        tgp_plugin_init_adapter,
         NULL            /* value_table */
     };
 
     static const GInterfaceInfo menu_provider_info = {
-        (GInterfaceInitFunc) tgp_plugin_menu_provider_init,
+        tgp_plugin_menu_provider_init_adapter,
         NULL,           /* interface_finalize */
         NULL            /* interface_data */
     };

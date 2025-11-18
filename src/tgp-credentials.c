@@ -217,6 +217,9 @@ tgp_git_credentials_callback(git_credential **out, const char *url,
     gchar *password = NULL;
     int error = GIT_PASSTHROUGH;  /* Default: let libgit2 handle it */
 
+    (void)username_from_url;
+    (void)payload;
+
     if (!url || !out)
         return GIT_PASSTHROUGH;
 

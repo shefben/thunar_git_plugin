@@ -216,9 +216,22 @@ tgp_show_commit_dialog(GtkWindow *parent, const gchar *repo_path, GList *files)
         const gchar *workdir = git_repository_workdir(repo);
         for (GList *l = files; l != NULL; l = l->next)
         {
-            gchar *file_path = thunarx_file_info_get_location(l->data);
+            GFile *location = thunarx_file_info_get_location(l->data);
+            if (!location)
+            {
+                continue;
+            }
+
+            gchar *file_path = g_file_get_path(location);
+            g_object_unref(location);
+
+            if (!file_path)
+            {
+                continue;
+            }
+
             const gchar *relative_path = file_path;
-            
+
             if (workdir && g_str_has_prefix(file_path, workdir))
             {
                 relative_path = file_path + strlen(workdir);

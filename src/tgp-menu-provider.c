@@ -68,8 +68,13 @@ tgp_menu_provider_get_file_items(ThunarxMenuProvider *provider,
     
     /* Get first file path */
     ThunarxFileInfo *file_info = files->data;
-    file_path = thunarx_file_info_get_location(file_info);
-    
+    GFile *location = thunarx_file_info_get_location(file_info);
+    if (location)
+    {
+        file_path = g_file_get_path(location);
+        g_object_unref(location);
+    }
+
     if (file_path == NULL)
         return NULL;
     
@@ -260,7 +265,19 @@ action_add(ThunarxMenuItem *item, gpointer user_data)
         GList *file_paths = NULL;
         for (GList *l = data->files; l != NULL; l = l->next)
         {
-            gchar *path = thunarx_file_info_get_location(l->data);
+            GFile *location = thunarx_file_info_get_location(l->data);
+            if (!location)
+            {
+                continue;
+            }
+
+            gchar *path = g_file_get_path(location);
+            g_object_unref(location);
+
+            if (!path)
+            {
+                continue;
+            }
             file_paths = g_list_append(file_paths, path);
         }
         
@@ -474,11 +491,20 @@ action_diff(ThunarxMenuItem *item, gpointer user_data)
     
     if (data->files)
     {
-        gchar *file_path = thunarx_file_info_get_location(data->files->data);
-        tgp_show_diff_dialog(GTK_WINDOW(data->window), data->repo_path, file_path);
-        g_free(file_path);
+        GFile *location = thunarx_file_info_get_location(data->files->data);
+        if (location)
+        {
+            gchar *file_path = g_file_get_path(location);
+            g_object_unref(location);
+
+            if (file_path)
+            {
+                tgp_show_diff_dialog(GTK_WINDOW(data->window), data->repo_path, file_path);
+                g_free(file_path);
+            }
+        }
     }
-    
+
     action_data_free(data);
 }
 

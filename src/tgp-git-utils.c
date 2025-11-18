@@ -823,8 +823,9 @@ tgp_git_pull_with_auth(git_repository *repo, const gchar *remote, const gchar *b
     git_remote *remote_obj = NULL;
     git_fetch_options fetch_opts = GIT_FETCH_OPTIONS_INIT;
     git_merge_options merge_opts = GIT_MERGE_OPTIONS_INIT;
-    git_reference *ref;
-    git_object *target;
+    git_checkout_options checkout_opts = GIT_CHECKOUT_OPTIONS_INIT;
+    git_reference *ref = NULL;
+    git_annotated_commit *annotated = NULL;
     gint ret = 0;
 
     if (!repo || !remote || !branch)
@@ -876,10 +877,32 @@ tgp_git_pull_with_auth(git_repository *repo, const gchar *remote, const gchar *b
     /* Merge remote tracking branch */
     gchar *remote_ref = g_strdup_printf("refs/remotes/%s/%s", remote, branch);
 
-    if (git_revparse_single(&target, repo, remote_ref) == 0)
+    if (git_reference_lookup(&ref, repo, remote_ref) != 0)
     {
-        ret = git_merge(repo, (const git_annotated_commit**)&target, 1, &merge_opts);
+        g_set_error(error, 0, 0, "Remote reference '%s' not found", remote_ref);
+        g_free(remote_ref);
+        git_remote_free(remote_obj);
+        return FALSE;
     }
+
+    if (git_annotated_commit_from_ref(&annotated, repo, ref) != 0)
+    {
+        g_set_error(error, 0, 0, "Failed to resolve remote reference '%s'", remote_ref);
+        git_reference_free(ref);
+        g_free(remote_ref);
+        git_remote_free(remote_obj);
+        return FALSE;
+    }
+
+    git_reference_free(ref);
+
+    ret = git_merge(repo,
+                    (const git_annotated_commit **)&annotated,
+                    1,
+                    &merge_opts,
+                    &checkout_opts);
+
+    git_annotated_commit_free(annotated);
 
     g_free(remote_ref);
     git_remote_free(remote_obj);

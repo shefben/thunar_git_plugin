@@ -970,7 +970,7 @@ tgp_show_status_dialog(GtkWindow *parent, const gchar *repo_path)
     GString *status_text;
     git_repository *repo;
     git_status_list *status_list;
-    git_status_options opts = GIT_STATUS_OPTIONS_INIT;
+    git_status_options opts;
     
     dialog = gtk_dialog_new_with_buttons("Repository Status",
                                           parent,
@@ -1005,8 +1005,9 @@ tgp_show_status_dialog(GtkWindow *parent, const gchar *repo_path)
             g_free(branch);
         }
         
+        git_status_options_init(&opts, GIT_STATUS_OPTIONS_VERSION);
         opts.show = GIT_STATUS_SHOW_INDEX_AND_WORKDIR;
-        opts.flags = GIT_STATUS_OPT_INCLUDE_UNTRACKED | 
+        opts.flags = GIT_STATUS_OPT_INCLUDE_UNTRACKED |
                      GIT_STATUS_OPT_RENAMES_HEAD_TO_INDEX |
                      GIT_STATUS_OPT_SORT_CASE_SENSITIVELY;
         

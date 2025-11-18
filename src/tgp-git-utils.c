@@ -119,9 +119,10 @@ gboolean
 tgp_git_has_uncommitted_changes(git_repository *repo)
 {
     git_status_list *status_list;
-    git_status_options opts = GIT_STATUS_OPTIONS_INIT;
+    git_status_options opts;
     gboolean has_changes = FALSE;
-    
+
+    git_status_options_init(&opts, GIT_STATUS_OPTIONS_VERSION);
     opts.show = GIT_STATUS_SHOW_INDEX_AND_WORKDIR;
     opts.flags = GIT_STATUS_OPT_INCLUDE_UNTRACKED;
     
@@ -303,7 +304,9 @@ gboolean
 tgp_git_clone(const gchar *url, const gchar *path, GError **error)
 {
     git_repository *repo = NULL;
-    git_clone_options clone_opts = GIT_CLONE_OPTIONS_INIT;
+    git_clone_options clone_opts;
+
+    git_clone_options_init(&clone_opts, GIT_CLONE_OPTIONS_VERSION);
     
     if (git_clone(&repo, url, path, &clone_opts) != 0)
     {
@@ -320,19 +323,23 @@ gboolean
 tgp_git_push(git_repository *repo, const gchar *remote_name, const gchar *branch, GError **error)
 {
     git_remote *remote = NULL;
-    git_push_options push_opts = GIT_PUSH_OPTIONS_INIT;
+    git_push_options push_opts;
     gchar *refspec;
-    const git_strarray refspecs = { &refspec, 1 };
+    git_strarray refspecs;
     gboolean success = FALSE;
-    
+
+    git_push_options_init(&push_opts, GIT_PUSH_OPTIONS_VERSION);
+
     if (git_remote_lookup(&remote, repo, remote_name ? remote_name : "origin") != 0)
     {
         g_set_error(error, 0, 0, "Failed to lookup remote");
         return FALSE;
     }
-    
+
     refspec = g_strdup_printf("refs/heads/%s:refs/heads/%s", branch, branch);
-    
+    refspecs.strings = &refspec;
+    refspecs.count = 1;
+
     if (git_remote_push(remote, &refspecs, &push_opts) == 0)
     {
         success = TRUE;
@@ -353,15 +360,19 @@ gboolean
 tgp_git_pull(git_repository *repo, const gchar *remote_name, const gchar *branch, GError **error)
 {
     git_remote *remote = NULL;
-    git_fetch_options fetch_opts = GIT_FETCH_OPTIONS_INIT;
+    git_fetch_options fetch_opts;
     gboolean success = FALSE;
-    
+
+    git_fetch_options_init(&fetch_opts, GIT_FETCH_OPTIONS_VERSION);
+
     if (git_remote_lookup(&remote, repo, remote_name ? remote_name : "origin") != 0)
     {
         g_set_error(error, 0, 0, "Failed to lookup remote");
         return FALSE;
     }
-    
+
+    (void)branch;
+
     if (git_remote_fetch(remote, NULL, &fetch_opts, NULL) == 0)
     {
         /* TODO: Implement merge after fetch */
@@ -421,8 +432,10 @@ tgp_git_stash(git_repository *repo, const gchar *message, GError **error)
 gboolean
 tgp_git_stash_pop(git_repository *repo, GError **error)
 {
-    git_stash_apply_options opts = GIT_STASH_APPLY_OPTIONS_INIT;
-    
+    git_stash_apply_options opts;
+
+    git_stash_apply_options_init(&opts, GIT_STASH_APPLY_OPTIONS_VERSION);
+
     if (git_stash_pop(repo, 0, &opts) != 0)
     {
         const git_error *e = git_error_last();
@@ -438,9 +451,11 @@ gchar*
 tgp_git_get_diff(git_repository *repo, const gchar *path)
 {
     git_diff *diff = NULL;
-    git_diff_options diff_opts = GIT_DIFF_OPTIONS_INIT;
+    git_diff_options diff_opts;
     GString *diff_text = g_string_new("");
-    
+
+    git_diff_options_init(&diff_opts, GIT_DIFF_OPTIONS_VERSION);
+
     /* Get diff between HEAD and working directory */
     if (git_diff_index_to_workdir(&diff, repo, NULL, &diff_opts) == 0)
     {
@@ -508,9 +523,10 @@ tgp_git_checkout_branch(git_repository *repo, const gchar *branch_name, GError *
 {
     git_reference *branch_ref = NULL;
     git_object *treeish = NULL;
-    git_checkout_options checkout_opts = GIT_CHECKOUT_OPTIONS_INIT;
+    git_checkout_options checkout_opts;
     gboolean success = FALSE;
-    
+
+    git_checkout_options_init(&checkout_opts, GIT_CHECKOUT_OPTIONS_VERSION);
     checkout_opts.checkout_strategy = GIT_CHECKOUT_SAFE;
     
     if (git_branch_lookup(&branch_ref, repo, branch_name, GIT_BRANCH_LOCAL) != 0)
@@ -632,9 +648,11 @@ gboolean
 tgp_git_fetch(git_repository *repo, const gchar *remote_name, GError **error)
 {
     git_remote *remote = NULL;
-    git_fetch_options fetch_opts = GIT_FETCH_OPTIONS_INIT;
+    git_fetch_options fetch_opts;
     gboolean success = FALSE;
-    
+
+    git_fetch_options_init(&fetch_opts, GIT_FETCH_OPTIONS_VERSION);
+
     if (git_remote_lookup(&remote, repo, remote_name ? remote_name : "origin") != 0)
     {
         g_set_error(error, 0, 0, "Failed to lookup remote");
@@ -676,6 +694,8 @@ tgp_git_get_remotes(git_repository *repo)
 GList*
 tgp_git_get_log(git_repository *repo, gint limit)
 {
+    (void)repo;
+    (void)limit;
     /* This would return a list of commit structures */
     /* For simplicity, we're using the dialog implementation directly */
     return NULL;
@@ -737,6 +757,7 @@ tgp_git_resolve_conflict(git_repository *repo, const gchar *path, GError **error
 GList*
 tgp_git_get_stashes(git_repository *repo)
 {
+    (void)repo;
     /* Simplified - would need to implement stash list traversal */
     return NULL;
 }
@@ -749,10 +770,12 @@ gboolean
 tgp_git_push_with_auth(git_repository *repo, const gchar *remote, const gchar *branch,
                        const gchar *username, const gchar *password, GError **error)
 {
-    git_push_options push_opts = GIT_PUSH_OPTIONS_INIT;
+    git_push_options push_opts;
     git_remote *remote_obj = NULL;
     gchar *refspec = NULL;
     int ret = 0;
+
+    git_push_options_init(&push_opts, GIT_PUSH_OPTIONS_VERSION);
 
     if (!repo || !remote || !branch)
         return FALSE;
@@ -796,9 +819,10 @@ tgp_git_push_with_auth(git_repository *repo, const gchar *remote, const gchar *b
 
     /* Build refspec: local branch -> remote branch */
     refspec = g_strdup_printf("refs/heads/%s:refs/heads/%s", branch, branch);
+    git_strarray refspecs = { &refspec, 1 };
 
     /* Push */
-    ret = git_remote_push(remote_obj, (const char * const*)&refspec, &push_opts);
+    ret = git_remote_push(remote_obj, &refspecs, &push_opts);
 
     g_free(refspec);
     git_remote_free(remote_obj);
@@ -821,12 +845,16 @@ tgp_git_pull_with_auth(git_repository *repo, const gchar *remote, const gchar *b
                        const gchar *username, const gchar *password, GError **error)
 {
     git_remote *remote_obj = NULL;
-    git_fetch_options fetch_opts = GIT_FETCH_OPTIONS_INIT;
-    git_merge_options merge_opts = GIT_MERGE_OPTIONS_INIT;
-    git_checkout_options checkout_opts = GIT_CHECKOUT_OPTIONS_INIT;
+    git_fetch_options fetch_opts;
+    git_merge_options merge_opts;
+    git_checkout_options checkout_opts;
     git_reference *ref = NULL;
     git_annotated_commit *annotated = NULL;
     gint ret = 0;
+
+    git_fetch_options_init(&fetch_opts, GIT_FETCH_OPTIONS_VERSION);
+    git_merge_options_init(&merge_opts, GIT_MERGE_OPTIONS_VERSION);
+    git_checkout_options_init(&checkout_opts, GIT_CHECKOUT_OPTIONS_VERSION);
 
     if (!repo || !remote || !branch)
         return FALSE;

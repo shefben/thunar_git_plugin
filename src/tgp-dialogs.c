@@ -155,6 +155,44 @@ tgp_show_login_dialog(GtkWindow *parent, const gchar *host,
 }
 
 /* Commit Dialog */
+enum
+{
+    COL_INCLUDE = 0,
+    COL_PATH,
+    COL_FILE_INFO,
+};
+
+static void
+tgp_commit_toggle_cell(GtkCellRendererToggle *cell, gchar *path_str, gpointer user_data)
+{
+    GtkListStore *store = GTK_LIST_STORE(user_data);
+    GtkTreeIter iter;
+    GtkTreePath *path = gtk_tree_path_new_from_string(path_str);
+
+    if (gtk_tree_model_get_iter(GTK_TREE_MODEL(store), &iter, path))
+    {
+        gboolean active = FALSE;
+        gtk_tree_model_get(GTK_TREE_MODEL(store), &iter, COL_INCLUDE, &active, -1);
+        gtk_list_store_set(store, &iter, COL_INCLUDE, !active, -1);
+    }
+
+    gtk_tree_path_free(path);
+}
+
+static gboolean
+tgp_commit_unref_file_info(GtkTreeModel *model, GtkTreePath *path, GtkTreeIter *iter, gpointer data)
+{
+    gpointer file_info = NULL;
+    gtk_tree_model_get(model, iter, COL_FILE_INFO, &file_info, -1);
+
+    if (file_info)
+    {
+        g_object_unref(file_info);
+    }
+
+    return FALSE;
+}
+
 void
 tgp_show_commit_dialog(GtkWindow *parent, const gchar *repo_path, GList *files)
 {
@@ -207,7 +245,7 @@ tgp_show_commit_dialog(GtkWindow *parent, const gchar *repo_path, GList *files)
     gtk_widget_set_halign(label, GTK_ALIGN_START);
     gtk_grid_attach(GTK_GRID(grid), label, 0, 2, 1, 1);
     
-    store = gtk_list_store_new(2, G_TYPE_BOOLEAN, G_TYPE_STRING);
+    store = gtk_list_store_new(3, G_TYPE_BOOLEAN, G_TYPE_STRING, G_TYPE_POINTER);
     
     /* Add files to list */
     git_repository *repo = tgp_git_open_repository(repo_path);
@@ -238,7 +276,14 @@ tgp_show_commit_dialog(GtkWindow *parent, const gchar *repo_path, GList *files)
             }
             
             gtk_list_store_append(store, &iter);
-            gtk_list_store_set(store, &iter, 0, TRUE, 1, relative_path, -1);
+            gtk_list_store_set(store, &iter,
+                              COL_INCLUDE, TRUE,
+                              COL_PATH, relative_path,
+                              COL_FILE_INFO, l->data,
+                              -1);
+
+            /* Keep the file info alive while the dialog is open */
+            g_object_ref(l->data);
             
             g_free(file_path);
         }
@@ -249,11 +294,12 @@ tgp_show_commit_dialog(GtkWindow *parent, const gchar *repo_path, GList *files)
     g_object_unref(store);
     
     renderer = gtk_cell_renderer_toggle_new();
-    column = gtk_tree_view_column_new_with_attributes("Include", renderer, "active", 0, NULL);
+    g_signal_connect(renderer, "toggled", G_CALLBACK(tgp_commit_toggle_cell), store);
+    column = gtk_tree_view_column_new_with_attributes("Include", renderer, "active", COL_INCLUDE, NULL);
     gtk_tree_view_append_column(GTK_TREE_VIEW(file_list_view), column);
-    
+
     renderer = gtk_cell_renderer_text_new();
-    column = gtk_tree_view_column_new_with_attributes("File", renderer, "text", 1, NULL);
+    column = gtk_tree_view_column_new_with_attributes("File", renderer, "text", COL_PATH, NULL);
     gtk_tree_view_append_column(GTK_TREE_VIEW(file_list_view), column);
     
     file_scroll = gtk_scrolled_window_new(NULL, NULL);
@@ -274,40 +320,79 @@ tgp_show_commit_dialog(GtkWindow *parent, const gchar *repo_path, GList *files)
     {
         GtkTextIter start, end;
         gchar *commit_message;
+        GtkTreeModel *model;
+        gboolean has_selection = FALSE;
+        GList *selected_files = NULL;
         
         gtk_text_buffer_get_start_iter(buffer, &start);
         gtk_text_buffer_get_end_iter(buffer, &end);
         commit_message = gtk_text_buffer_get_text(buffer, &start, &end, FALSE);
         
-        if (commit_message && strlen(commit_message) > 0)
+        model = gtk_tree_view_get_model(GTK_TREE_VIEW(file_list_view));
+
+        if (model)
+        {
+            GtkTreeIter iter_files;
+            gboolean valid = gtk_tree_model_get_iter_first(model, &iter_files);
+
+            while (valid)
+            {
+                gboolean include = FALSE;
+                gpointer file_info = NULL;
+
+                gtk_tree_model_get(model, &iter_files,
+                                   COL_INCLUDE, &include,
+                                   COL_FILE_INFO, &file_info,
+                                   -1);
+
+                if (include && file_info)
+                {
+                    selected_files = g_list_append(selected_files, g_object_ref(file_info));
+                    has_selection = TRUE;
+                }
+
+                valid = gtk_tree_model_iter_next(model, &iter_files);
+            }
+        }
+
+        if (commit_message && strlen(commit_message) > 0 && has_selection)
         {
             git_repository *repo = tgp_git_open_repository(repo_path);
             if (repo)
             {
                 GError *error = NULL;
-                if (tgp_git_commit(repo, commit_message, files, &error))
+                if (tgp_git_commit(repo, commit_message, selected_files, &error))
                 {
-                    tgp_show_info_dialog(parent, "Commit Successful", 
+                    tgp_show_info_dialog(parent, "Commit Successful",
                                         "Changes have been committed successfully.");
                 }
                 else
                 {
-                    tgp_show_error_dialog(parent, "Commit Failed", 
+                    tgp_show_error_dialog(parent, "Commit Failed",
                                          error ? error->message : "Unknown error");
                     if (error) g_error_free(error);
                 }
                 git_repository_free(repo);
             }
         }
-        else
+        else if (!commit_message || strlen(commit_message) == 0)
         {
-            tgp_show_error_dialog(parent, "Invalid Input", 
+            tgp_show_error_dialog(parent, "Invalid Input",
                                  "Commit message cannot be empty.");
         }
-        
+        else
+        {
+            tgp_show_error_dialog(parent, "No Files Selected",
+                                 "Select at least one file to include in the commit.");
+        }
+
+        g_list_free_full(selected_files, g_object_unref);
         g_free(commit_message);
     }
-    
+
+    /* Release stored file info references */
+    gtk_tree_model_foreach(GTK_TREE_MODEL(store), tgp_commit_unref_file_info, NULL);
+
     gtk_widget_destroy(dialog);
 }
 
